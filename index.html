@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Spotify アーティスト紹介</title>
+  <style>
+    /* 基本のスタイル */
+    body {
+      font-family: 'Roboto', sans-serif;
+      background-color: #121212;
+      color: white;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      flex-direction: column;
+      background-image: linear-gradient(45deg, #2b2b2b, #121212);
+    }
+    
+    h1 {
+      font-size: 3rem;
+      text-align: center;
+      margin-bottom: 20px;
+      color: #1db954;
+      text-shadow: 0 0 10px rgba(255, 255, 255, 0.7);
+    }
+
+    .search-container {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 20px;
+    }
+    .search-container input {
+      padding: 15px;
+      font-size: 18px;
+      border-radius: 25px;
+      border: 2px solid #1db954;
+      background-color: #333;
+      color: white;
+      width: 80%;
+      max-width: 600px;
+      box-sizing: border-box;
+    }
+    .search-container input::placeholder {
+      color: #888;
+    }
+
+    /* アルバム・シングルカードのスタイル */
+    .cards-container {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 20px;
+    }
+    .card {
+      background-color: #1e1e1e;
+      border-radius: 12px;
+      width: 250px;
+      padding: 15px;
+      text-align: center;
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    .card:hover {
+      transform: translateY(-10px);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    }
+    .card img {
+      width: 100%;
+      border-radius: 8px;
+      transition: transform 0.3s ease;
+    }
+    .card img:hover {
+      transform: scale(1.1);
+    }
+    .card h3 {
+      font-size: 18px;
+      margin-top: 10px;
+      color: #fff;
+    }
+    .card p {
+      color: #ccc;
+      font-size: 14px;
+      margin-bottom: 15px;
+    }
+    .play-button {
+      background-color: #1db954;
+      color: white;
+      border: none;
+      padding: 12px;
+      width: 100%;
+      font-size: 16px;
+      border-radius: 30px;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+    .play-button:hover {
+      background-color: #1ed760;
+    }
+
+    iframe {
+      margin-top: 20px;
+      width: 100%;
+      height: 80px;
+      border: none;
+      border-radius: 12px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Spotify アーティスト紹介</h1>
+
+  <div class="search-container">
+    <input type="text" id="search" placeholder="アーティスト名またはアルバム名を検索..." oninput="searchItems()">
+  </div>
+
+  <div id="album-list" class="cards-container"></div>
+  <div id="single-list" class="cards-container"></div>
+
+  <script>
+    const clientId = 'e32ee4138bd44e7abf5f81c306373c9c';  // ここにClient IDを入力
+    const clientSecret = 'acfca10b05264e1bbad8b4f39ff9d04f';  // ここにClient Secretを入力
+
+    async function getAccessToken() {
+      const response = await fetch('https://accounts.spotify.com/api/token', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Basic ' + btoa(clientId + ':' + clientSecret),
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: new URLSearchParams({
+          grant_type: 'client_credentials'
+        })
+      });
+      const data = await response.json();
+      return data.access_token;
+    }
+
+    async function searchSpotify(query) {
+      const token = await getAccessToken();
+      const response = await fetch(`https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=album,artist&limit=10`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const data = await response.json();
+      return data;
+    }
+
+    async function searchItems() {
+      const query = document.getElementById('search').value;
+      if (query === "") {
+        document.getElementById('album-list').innerHTML = '';
+        document.getElementById('single-list').innerHTML = '';
+        return;
+      }
+
+      const results = await searchSpotify(query);
+      displayAlbums(results.albums.items);
+      displaySingles(results.albums.items);
+    }
+
+    function displayAlbums(albums) {
+      const albumList = document.getElementById('album-list');
+      albumList.innerHTML = ''; 
+
+      albums.forEach(album => {
+        if (album.album_type === 'album') {
+          const albumDiv = document.createElement('div');
+          albumDiv.classList.add('card');
+          albumDiv.innerHTML = `
+            <img src="${album.images[0]?.url}" alt="${album.name}">
+            <h3>${album.name}</h3>
+            <p>${album.artists.map(artist => artist.name).join(', ')}</p>
+            <button class="play-button" onclick="playTrack('${album.id}')">再生</button>
+          `;
+          albumList.appendChild(albumDiv);
+        }
+      });
+    }
+
+    function displaySingles(albums) {
+      const singleList = document.getElementById('single-list');
+      singleList.innerHTML = ''; 
+
+      albums.forEach(album => {
+        if (album.album_type === 'single') {
+          const singleDiv = document.createElement('div');
+          singleDiv.classList.add('card');
+          singleDiv.innerHTML = `
+            <img src="${album.images[0]?.url}" alt="${album.name}">
+            <h3>${album.name}</h3>
+            <p>${album.artists.map(artist => artist.name).join(', ')}</p>
+            <button class="play-button" onclick="playTrack('${album.id}')">再生</button>
+          `;
+          singleList.appendChild(singleDiv);
+        }
+      });
+    }
+
+    async function playTrack(albumId) {
+      const token = await getAccessToken();
+      const response = await fetch(`https://api.spotify.com/v1/albums/${albumId}/tracks`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const data = await response.json();
+      const trackId = data.items[0].id;
+
+      const iframe = document.createElement('iframe');
+      iframe.src = `https://open.spotify.com/embed/track/${trackId}?autoplay=1`;
+      iframe.width = "300";
+      iframe.height = "80";
+      iframe.frameBorder = "0";
+      iframe.allow = "encrypted-media";
+      
+      const existingIframe = document.querySelector('iframe');
+      if (existingIframe) {
+        existingIframe.remove();
+      }
+      
+      document.body.appendChild(iframe);
+    }
+  </script>
+</body>
+</html>
